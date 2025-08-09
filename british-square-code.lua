@@ -1,4 +1,5 @@
 function _init()
+	-- create enums
 	status = {
 		empty = 0,
 		red = 1,
@@ -24,37 +25,38 @@ function _init()
 		red = 8,
 		blue = 12,
 		white = 7}
-	state = states.game
-	ox = 32
-	oy = 24
 	pointloc = {
 		p1x = 32,
 		p2x = 80,
-		y = 72
-	}
-	scores = {
-		p1 = 0,
-		p2 = 0}
-
-	timer = 0
-	firstturn = true
-	lastplaced = status.red
+		y = 72}
+	ox = 32
+	oy = 24
 	
+	--initialize game components
+	initgrid()
+	initgamevariables()
+end
+
+function initgamevariables()
 	player = {
 		isactive = true,
 		isvalid = true,
 		sprite = sprites.p1,
 		row=1,
 		col=1}
-
-	initgrid()
+	scores = {
+		p1 = 0,
+		p2 = 0}
+	state = states.game
+	timer = 0
+	firstturn = true
+	lastplaced = status.red
 end
 
 function _update()
 	if state == states.game then doturn()
-	elseif state == states.roundend then waitforstart()
-	elseif state == states.gameend then
-		stop()
+	elseif state == states.roundend then waitfornewround()
+	elseif state == states.gameend then waitfornewgame()
 	end
 end
 
@@ -73,8 +75,8 @@ end
 function doturn()
 
 	if not player.isactive then
-	compturn()
-	return
+		compturn()
+		return
 	end
 
 	if not hasvalidspaces(status.redinv) then
@@ -92,7 +94,7 @@ function doturn()
 	if (player.col > 5) player.col = 5
 	if (player.row > 5) player.row = 5
 
- setisvalid()
+	setisvalid()
 
 	if btnp(🅾️) and player.isactive
 	 and player.isvalid then
@@ -101,9 +103,17 @@ function doturn()
 	end
 end
 
-function waitforstart()
+function waitfornewround()
 	if btnp(🅾️) then
 		state = states.game
+		initgrid()
+	end
+end
+
+function waitfornewgame()
+	if btnp(🅾️) then
+		state = states.game
+		initgamevariables()
 		initgrid()
 	end
 end
@@ -267,10 +277,10 @@ function roundend()
 		else
 		 print("blue wins!",0,0,colors.blue)
 		end 
-		stop()
+		print("press 🅾️ to play again.", 0, 8,colors.white)
 	else
 		state = states.roundend
-		print("end of the round.", 0, 0, 7)
-		print("press 🅾️ to continue.", 0, 8,7)
+		print("end of the round.", 0, 0, colors.white)
+		print("press 🅾️ to continue.", 0, 8, colors.white)
 	end
 end
