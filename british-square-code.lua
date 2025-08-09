@@ -1,5 +1,5 @@
 function _init()
-	tilestatus = {
+	status = {
 		empty = 0,
 		red = 1,
 		redb = 2,
@@ -15,21 +15,28 @@ function _init()
 		p1point = 33,
 		p2point = 34,
 		invalid = 49}
-	ox = 5*8
-	oy = 4*8
-	bx = ox + 32
-	by = oy + 32
+	ox = 32
+	oy = 24
+	pointloc = {
+		p1x = 32,
+		p2x = 80,
+		y = 80
+	}
+	scores = {
+		p1 = 0,
+		p2 = 0}
+
 	timer = 0
 	firstturn = true
 	
 	player = {
 		isactive = true,
-	 isvalid = true,
-	 sprite = sprites.p1,
-		x=ox,
-		y=oy}
+		isvalid = true,
+		sprite = sprites.p1,
+		row=1,
+		col=1}
 
-	buildgrid()
+	initgrid()
 end
 
 function _update()
@@ -42,6 +49,7 @@ function _draw()
 	map()
 	drawgrid()
 	drawplayer()
+	drawscore()
 end
 
 function doturn()
@@ -51,40 +59,48 @@ function doturn()
   return
  end
 	-- only move one dir at a time
-	if (btnp(⬅️)) player.x-=8
-	if (btnp(➡️)) player.x+=8
-	if (btnp(⬆️)) player.y-=8
-	if (btnp(⬇️)) player.y+=8
+	if (btnp(⬅️)) player.col-=1
+	if (btnp(➡️)) player.col+=1
+	if (btnp(⬆️)) player.row-=1
+	if (btnp(⬇️)) player.row+=1
 	
 	-- keep player in bounds
-	if (player.x<ox) player.x = ox
-	if (player.y<oy) player.y = oy
-	if (player.x>bx) player.x = bx
-	if (player.y>by) player.y = by
+	if (player.col < 1) player.col = 1
+	if (player.row < 1) player.row = 1
+	if (player.col > 5) player.col = 5
+	if (player.row > 5) player.row = 5
 
  setisvalid()
 
 	if btnp(🅾️) and player.isactive
 	 and player.isvalid then
-		placetile(playerrow(),playercol())
-		player.isactive = not hasvalidspaces(tilestatus.blueinv)	
-  firstturn = false
+		placetile(player.row,player.col)
+		player.isactive = not hasvalidspaces(status.blueinv)	
 	end
 end
 
 function drawplayer()
 	if player.isactive then
-		spr(player.sprite, player.x, player.y)
+		spr(player.sprite, player.col * 8 + ox, player.row * 8 + oy)
 	end
 end
 
+function drawscore()
+	spr(sprites.p1point, pointloc.p1x, pointloc.y - (scores.p1 * 8))
+	spr(sprites.p2point, pointloc.p2x, pointloc.y - (scores.p2 * 8))
+end
+
 function placetile(row, col)
+	if firstturn then
+		grid[3][3] = status.empty
+		firstturn = false
+	end
 	-- get correct color
-	local tile = tilestatus.red
-	local block = tilestatus.redb
+	local tile = status.red
+	local block = status.redb
 	if not player.isactive then
-	 tile = tilestatus.blue
-	 block = tilestatus.blueb
+	 tile = status.blue
+	 block = status.blueb
 	end
 	-- add tile to grid
 	grid[row][col] = tile
@@ -105,14 +121,14 @@ function placetile(row, col)
 end
 
 function drawgrid()
-	for r=0, 4 do
-		for c=0, 4 do
-			local tile = grid[r+1][c+1]
-			if tile & tilestatus.red == tilestatus.red then
+	for r=1, 5 do
+		for c=1, 5 do
+			local tile = grid[r][c]
+			if tile & status.red == status.red then
 			 --place red
 			 spr(sprites.red, ox+(8*c), oy+(8*r))
 			end
-			if tile & tilestatus.blue == tilestatus.blue then
+			if tile & status.blue == status.blue then
 			 --place blue
 			 spr(sprites.blue, ox+(8*c), oy+(8*r))
 			end
@@ -120,35 +136,27 @@ function drawgrid()
 	end
 end
 
-function buildgrid()
+function initgrid()
 	grid = {}
 	for i=1, 5 do
 	 grid[i] = {
-	 tilestatus.empty,
-	 tilestatus.empty,
-	 tilestatus.empty,
-	 tilestatus.empty,
-	 tilestatus.empty,
+	 status.empty,
+	 status.empty,
+	 status.empty,
+	 status.empty,
+	 status.empty,
 	 }
 	end
+	-- set center invalid for first turn
+	grid[3][3] = status.blueb | status.redb
 	
 end
 
-function playercol()
-	return ((player.x - ox) / 8) + 1
-end
-
-function playerrow()
-	return ((player.y - oy) / 8) + 1
-end
-
 function setisvalid()
-	local row = playerrow()
-	local col = playercol()
-	local tile = grid[row][col]
-	if tile & tilestatus.redinv == 0
-	 then
-	 player.isvalid = true
+	local tile = grid[player.row][player.col]
+	if tile & status.redinv == 0
+		then
+		player.isvalid = true
 		player.sprite = sprites.p1
 	else
 		player.isvalid = false
@@ -164,29 +172,29 @@ function compturn()
  timer = 0
  
  if not firstturn
-  and grid[3][3] & tilestatus.blueinv == 0 then
+  and grid[3][3] & status.blueinv == 0 then
    placetile(3,3)
-   player.isactive = hasvalidspaces(tilestatus.redinv)
+   player.isactive = hasvalidspaces(status.redinv)
   return
  end
  
  local spcs = {}
  for r = 1, 5 do
  	for c = 1, 5 do
- 		if grid[r][c] & tilestatus.blueinv == 0 then
+ 		if grid[r][c] & status.blueinv == 0 then
    			add(spcs, {row = r, col = c})
   	end  
   end
  end
+ 
  if #spcs == 0 then
- 	--end game
- 	print("end of round")
+ 	roundend()
+ 	return
  end
  local space = ceil(rnd(#spcs))
  local tile = spcs[space]
  placetile(tile.row, tile.col)
- player.isactive = hasvalidspaces(tilestatus.redinv)
- firstturn = false
+ player.isactive = hasvalidspaces(status.redinv)
 end
 
 function hasvalidspaces(invalid)
@@ -198,4 +206,33 @@ function hasvalidspaces(invalid)
 		end
 	end
 	return false
+end
+
+function roundend()
+	local red = 0
+	local blue = 0
+	for r = 1, 5 do
+		for c = 1, 5 do
+		 if grid[r][c] & status.blue > 0 then
+		 	blue+=1
+		 elseif grid[r][c] & status.red > 0 then
+				red+=1
+		 end
+		end
+	end
+	
+	if red > blue then
+		scores.p1 += red - blue
+		player.isactive = false
+	elseif blue > red then
+		scores.p2 += blue - red
+		player.isactive = true
+	else
+		player.isactive = not player.isactive
+	end
+	if scores.p1 > 7 or scores.p2 > 7 then
+		--trigger end of game
+	else
+		initgrid()
+	end
 end
