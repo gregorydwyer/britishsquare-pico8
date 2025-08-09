@@ -28,6 +28,7 @@ function _init()
 
 	timer = 0
 	firstturn = true
+	lastplaced = status.red
 	
 	player = {
 		isactive = true,
@@ -54,10 +55,14 @@ end
 
 function doturn()
 
- if not player.isactive then
-  compturn()
-  return
- end
+	if not player.isactive then
+	compturn()
+	return
+	end
+
+	if not hasvalidspaces(status.redinv) then
+		roundend()
+	end
 	-- only move one dir at a time
 	if (btnp(⬅️)) player.col-=1
 	if (btnp(➡️)) player.col+=1
@@ -104,7 +109,7 @@ function placetile(row, col)
 	end
 	-- add tile to grid
 	grid[row][col] = tile
- --printh("row "..row.." col "..col)
+	lastplaced = tile
 	-- set blocked tiles
 	if row != 1 then
 	 grid[row-1][col] = grid[row-1][col] | block
@@ -149,6 +154,7 @@ function initgrid()
 	end
 	-- set center invalid for first turn
 	grid[3][3] = status.blueb | status.redb
+	firstturn = true
 	
 end
 
@@ -170,13 +176,6 @@ function compturn()
   return
  end
  timer = 0
- 
- if not firstturn
-  and grid[3][3] & status.blueinv == 0 then
-   placetile(3,3)
-   player.isactive = hasvalidspaces(status.redinv)
-  return
- end
  
  local spcs = {}
  for r = 1, 5 do
@@ -228,7 +227,7 @@ function roundend()
 		scores.p2 += blue - red
 		player.isactive = true
 	else
-		player.isactive = not player.isactive
+		player.isactive = lastplaced == status.blue
 	end
 	if scores.p1 > 7 or scores.p2 > 7 then
 		--trigger end of game
