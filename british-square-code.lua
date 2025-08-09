@@ -15,12 +15,22 @@ function _init()
 		p1point = 33,
 		p2point = 34,
 		invalid = 49}
+	states = {
+		menu = 0,
+		game = 1,
+		roundend = 2,
+		gameend = 3}
+	colors = {
+		red = 8,
+		blue = 12,
+		white = 7}
+	state = states.game
 	ox = 32
 	oy = 24
 	pointloc = {
 		p1x = 32,
 		p2x = 80,
-		y = 80
+		y = 72
 	}
 	scores = {
 		p1 = 0,
@@ -41,11 +51,18 @@ function _init()
 end
 
 function _update()
-	doturn()
-
+	if state == states.game then doturn()
+	elseif state == states.roundend then waitforstart()
+	elseif state == states.gameend then
+		stop()
+	end
 end
 
 function _draw()
+	if (state == states.game) drawgame()
+end
+
+function drawgame()
 	cls()
 	map()
 	drawgrid()
@@ -84,6 +101,13 @@ function doturn()
 	end
 end
 
+function waitforstart()
+	if btnp(🅾️) then
+		state = states.game
+		initgrid()
+	end
+end
+
 function drawplayer()
 	if player.isactive then
 		spr(player.sprite, player.col * 8 + ox, player.row * 8 + oy)
@@ -91,6 +115,8 @@ function drawplayer()
 end
 
 function drawscore()
+	print(scores.p1, pointloc.p1x, pointloc.y + 10, colors.red)
+	print(scores.p2, pointloc.p2x + 5, pointloc.y + 10, colors.blue)
 	spr(sprites.p1point, pointloc.p1x, pointloc.y - (scores.p1 * 8))
 	spr(sprites.p2point, pointloc.p2x, pointloc.y - (scores.p2 * 8))
 end
@@ -223,15 +249,28 @@ function roundend()
 	if red > blue then
 		scores.p1 += red - blue
 		player.isactive = false
+		print("+"..red-blue, 0, 16, colors.red)
 	elseif blue > red then
 		scores.p2 += blue - red
 		player.isactive = true
+		print("+"..blue-red, 0, 16, colors.blue)
 	else
+		print("no points", 0, 16, colors.white)
 		player.isactive = lastplaced == status.blue
 	end
-	if scores.p1 > 7 or scores.p2 > 7 then
+
+	if scores.p1 >= 7 or scores.p2 >= 7 then
 		--trigger end of game
+		state = states.gameend
+		if scores.p1 >= 7 then
+		 print("red wins!",0,0,colors.red)
+		else
+		 print("blue wins!",0,0,colors.blue)
+		end 
+		stop()
 	else
-		initgrid()
+		state = states.roundend
+		print("end of the round.", 0, 0, 7)
+		print("press 🅾️ to continue.", 0, 8,7)
 	end
 end
