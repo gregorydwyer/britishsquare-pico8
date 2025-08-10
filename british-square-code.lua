@@ -31,7 +31,10 @@ function _init()
 		y = 72}
 	ox = 32
 	oy = 24
-	
+	difficulty ={
+		easy = 0,
+		hard = 1}
+	mode = difficulty.easy
 	--initialize game components
 	initgrid()
 	initgamevariables()
@@ -44,6 +47,13 @@ function initgamevariables()
 		sprite = sprites.p1,
 		row=1,
 		col=1}
+	comp = {
+		sprite = sprites.p2,
+		row = 1,
+		col = 1,
+		hasdest = false,
+		destcol = 0,
+		destrow = 0}
 	scores = {
 		p1 = 0,
 		p2 = 0}
@@ -81,8 +91,13 @@ function doturn()
 
 	if not hasvalidspaces(status.redinv) then
 		roundend()
+		return
 	end
-	-- only move one dir at a time
+	
+	checkcontroller()
+end
+
+function checkcontroller()
 	if (btnp(⬅️)) player.col-=1
 	if (btnp(➡️)) player.col+=1
 	if (btnp(⬆️)) player.row-=1
@@ -121,6 +136,8 @@ end
 function drawplayer()
 	if player.isactive then
 		spr(player.sprite, player.col * 8 + ox, player.row * 8 + oy)
+	else
+		spr(comp.sprite, comp.col * 8 + ox, comp.row * 8 + oy)
 	end
 end
 
@@ -207,12 +224,47 @@ function setisvalid()
 end
 
 function compturn()
- if timer < 30 then
-  timer +=1
-  return
- end
- timer = 0
- 
+	if comp.hasdest then
+		if comp.row == comp.destrow 
+		and comp.col == comp.destcol then
+			placetile(comp.row, comp.col)
+			comp.hasdest = false
+			player.isactive = hasvalidspaces(status.redinv)
+		else
+			movecomp()
+		end
+	elseif mode == difficulty.easy then
+		easyturn()
+	else
+		hardturn()
+	end
+end
+
+function movecomp()
+	if timer < 10 then
+  		timer +=1
+  		return
+ 	end
+ 	
+	timer = 0
+	if comp.row > comp.destrow then
+		comp.row -= 1
+	elseif comp.col > comp.destcol then
+		comp.col -= 1
+	elseif comp.row < comp.destrow then
+		comp.row += 1
+	elseif comp.col < comp.destcol then
+		comp.col += 1
+	end
+
+	if grid[comp.row][comp.col] & status.blueinv == 0 then
+		comp.sprite = sprites.p2
+	else
+		comp.sprite = sprites.invalid
+	end
+end
+
+function easyturn()
  local spcs = {}
  for r = 1, 5 do
  	for c = 1, 5 do
@@ -228,8 +280,13 @@ function compturn()
  end
  local space = ceil(rnd(#spcs))
  local tile = spcs[space]
- placetile(tile.row, tile.col)
- player.isactive = hasvalidspaces(status.redinv)
+ comp.destcol = tile.col
+ comp.destrow = tile.row
+ comp.hasdest = true
+end
+
+function hardturn()
+	--hard logic
 end
 
 function hasvalidspaces(invalid)
