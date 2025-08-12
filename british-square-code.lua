@@ -9,13 +9,13 @@ function _init()
 		blueb = 8,
 		redinv = 13}
 	sprites = {
-		p1 = 17,
-		p2 = 18,
+		p1 = 3,
+		p2 = 4,
 		red = 1,
 		blue = 2,
-		p1point = 33,
-		p2point = 34,
-		invalid = 49}
+		p1point = 5,
+		p2point = 6,
+		invalid = 7}
 	states = {
 		menu = 0,
 		game = 1,
@@ -57,7 +57,7 @@ function initgamevariables()
 	scores = {
 		p1 = 0,
 		p2 = 0}
-	state = states.game
+	state = states.menu
 	timer = 0
 	firstturn = true
 	lastplaced = status.red
@@ -67,19 +67,50 @@ function _update()
 	if state == states.game then doturn()
 	elseif state == states.roundend then waitfornewround()
 	elseif state == states.gameend then waitfornewgame()
+	elseif state == states.menu then menu()
 	end
 end
 
 function _draw()
 	if (state == states.game) drawgame()
+	if (state == states.menu) drawmenu()
+end
+
+function drawmenu()
+	cls()
+	map(17,2)
+	print("easy", 10, 122, colors.white)
+	print("hard", 38, 122, colors.white)
+	print("press 🅾️ to start", 58, 122, colors.white)
+	if mode == difficulty.easy then
+		spr(sprites.red, 0, 120)
+		print("easy", 10, 122, colors.red)
+	else
+		spr(sprites.red, 28, 120)
+		print("hard", 38, 122, colors.red)		
+	end
 end
 
 function drawgame()
 	cls()
 	map()
-	drawgrid()
+ drawgrid()
 	drawplayer()
 	drawscore()
+end
+
+function menu()
+	if btnp(⬆️) or btnp(⬇️)
+		or btnp(⬅️) or btnp(➡️) then
+		if mode == difficulty.easy then
+			mode = difficulty.hard
+		else
+			mode = difficulty.easy
+		end			
+	end
+	if btnp(🅾️) then
+		state = states.game
+	end
 end
 
 function doturn()
@@ -241,7 +272,7 @@ function compturn()
 end
 
 function movecomp()
-	if timer < 10 then
+	if timer < 13 then
   		timer +=1
   		return
  	end
@@ -316,13 +347,13 @@ function roundend()
 	if red > blue then
 		scores.p1 += red - blue
 		player.isactive = false
-		print("+"..red-blue, 0, 16, colors.red)
+		print("+"..red-blue, 56, 82, colors.red)
 	elseif blue > red then
 		scores.p2 += blue - red
 		player.isactive = true
-		print("+"..blue-red, 0, 16, colors.blue)
+		print("+"..blue-red, 56, 82, colors.blue)
 	else
-		print("no points", 0, 16, colors.white)
+		print("no points", 43, 82, colors.white)
 		player.isactive = lastplaced == status.blue
 	end
 
@@ -330,14 +361,18 @@ function roundend()
 		--trigger end of game
 		state = states.gameend
 		if scores.p1 >= 7 then
-		 print("red wins!",0,0,colors.red)
+		 printcenter("red wins!",0,colors.red)
 		else
-		 print("blue wins!",0,0,colors.blue)
+		 printcenter("blue wins!",0,colors.blue)
 		end 
-		print("press 🅾️ to play again.", 0, 8,colors.white)
+		printcenter("press 🅾️ to play again.", 8,colors.white)
 	else
 		state = states.roundend
-		print("end of the round.", 0, 0, colors.white)
-		print("press 🅾️ to continue.", 0, 8, colors.white)
+		printcenter("end of the round.", 0, colors.white)
+		printcenter("press 🅾️ to continue.", 8, colors.white)
 	end
+end
+
+function printcenter(text, y, color)
+	print(text, #text * -2 + 64, y, color)
 end
