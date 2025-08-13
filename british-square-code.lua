@@ -7,7 +7,9 @@ function _init()
 		blueinv = 7,
 		blue = 4,
 		blueb = 8,
-		redinv = 13}
+		redinv = 13,
+		standard = 16,
+		prime = 32}
 	sprites = {
 		p1 = 3,
 		p2 = 4,
@@ -18,9 +20,10 @@ function _init()
 		invalid = 7}
 	states = {
 		menu = 0,
-		game = 1,
-		roundend = 2,
-		gameend = 3}
+		rules = 1,
+		game = 2,
+		roundend = 3,
+		gameend = 4}
 	colors = {
 		red = 8,
 		blue = 12,
@@ -31,10 +34,11 @@ function _init()
 		y = 72}
 	ox = 32
 	oy = 24
-	difficulty ={
+	modes ={
 		easy = 0,
-		hard = 1}
-	mode = difficulty.easy
+		hard = 1,
+		rules = 2}
+	mode = modes.easy
 	--initialize game components
 	initgrid()
 	initgamevariables()
@@ -79,37 +83,44 @@ end
 function drawmenu()
 	cls()
 	map(17,2)
-	print("easy", 10, 122, colors.white)
-	print("hard", 38, 122, colors.white)
-	print("press 🅾️ to start", 58, 122, colors.white)
-	if mode == difficulty.easy then
-		spr(sprites.red, 0, 120)
-		print("easy", 10, 122, colors.red)
+	print("easy", 18, 122, colors.white)
+	print("hard", 47, 122, colors.white)
+	print("how to play", 76, 122, colors.white)
+	if mode == modes.easy then
+		spr(sprites.red, 8, 120)
+		print("easy", 18, 122, colors.red)
+	elseif mode == modes.hard then
+		spr(sprites.red, 37, 120)
+		print("hard", 47, 122, colors.red)
 	else
-		spr(sprites.red, 28, 120)
-		print("hard", 38, 122, colors.red)		
+		spr(sprites.red, 66, 120)
+		print("how to play", 76, 122, colors.red)		
 	end
 end
 
 function drawgame()
 	cls()
+--	for r = 0, 127 do
+--		for c = 0, 127 do
+--			pset(c,r,flr(rnd(2))+2)
+-- 	end
+--	end
 	map()
- drawgrid()
+	drawgrid()
 	drawplayer()
 	drawscore()
 end
 
 function menu()
-	if btnp(⬆️) or btnp(⬇️)
-		or btnp(⬅️) or btnp(➡️) then
-		if mode == difficulty.easy then
-			mode = difficulty.hard
-		else
-			mode = difficulty.easy
-		end			
+	if btnp(⬆️) or btnp(⬅️) then
+		mode = (mode + 2) % 3
+	elseif 	btnp(⬇️) or btnp(➡️) then
+		mode = (mode + 1) % 3	
 	end
-	if btnp(🅾️) then
+	if btn(🅾️) and mode != modes.rules then
 		state = states.game
+	elseif btn(🅾️) then
+		state = states.rules
 	end
 end
 
@@ -228,13 +239,21 @@ end
 function initgrid()
 	grid = {}
 	for i=1, 5 do
-	 grid[i] = {
-	 status.empty,
-	 status.empty,
-	 status.empty,
-	 status.empty,
-	 status.empty,
-	 }
+		if i % 5 <= 1 then
+			grid[i] = {
+			status.empty,
+			status.standard,
+			status.standard,
+			status.standard,
+			status.empty}
+		else
+			grid[i] = {
+			status.standard,
+			status.prime,
+			status.prime,
+			status.prime,
+			status.standard}
+		end
 	end
 	-- set center invalid for first turn
 	grid[3][3] = status.blueb | status.redb
@@ -264,7 +283,7 @@ function compturn()
 		else
 			movecomp()
 		end
-	elseif mode == difficulty.easy then
+	elseif mode == modes.easy then
 		easyturn()
 	else
 		hardturn()
@@ -297,20 +316,36 @@ end
 
 function easyturn()
  local spcs = {}
+ local prime = {}
+ local standard = {}
  for r = 1, 5 do
  	for c = 1, 5 do
  		if grid[r][c] & status.blueinv == 0 then
    			add(spcs, {row = r, col = c})
-  	end  
-  end
+			if grid[r][c] & status.prime > 0  
+			 and grid[r][c] & status.blueb == 0 then
+				add(prime,{row = r, col = c})
+			end  
+			if grid[r][c] & status.standard > 0  
+			 and grid[r][c] & status.blueb == 0 then
+				add(standard,{row = r, col = c})
+			end  
+		end
+	end
  end
  
  if #spcs == 0 then
  	roundend()
  	return
  end
- local space = ceil(rnd(#spcs))
- local tile = spcs[space]
+ local tile = {}
+ if #prime != 0 then
+	tile = prime[ceil(rnd(#prime))]
+ elseif #standard != 0 then
+ 	tile = standard[ceil(rnd(#standard))]
+ else
+	tile = spcs[ceil(rnd(#spcs))]
+ end
  comp.destcol = tile.col
  comp.destrow = tile.row
  comp.hasdest = true
