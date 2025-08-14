@@ -39,6 +39,17 @@ function _init()
 		hard = 1,
 		rules = 2}
 	mode = modes.easy
+	redcount = 0
+	bluecount = 0
+	anim = {
+		x = 0,
+		y = 0,
+		w = 24,
+		h = 24,
+		vx = .8,
+		vy = 1.3}
+	bgind = 1
+	bckgrdclrs = {1,2,3,5}
 	--initialize game components
 	initgrid()
 	initgamevariables()
@@ -77,6 +88,8 @@ end
 
 function _draw()
 	if (state == states.game) drawgame()
+	if (state == states.roundend) drawroundend()
+	if (state == states.gameend) drawgameend() 
 	if (state == states.menu) drawmenu()
 end
 
@@ -99,16 +112,27 @@ function drawmenu()
 end
 
 function drawgame()
-	cls()
---	for r = 0, 127 do
---		for c = 0, 127 do
---			pset(c,r,flr(rnd(2))+2)
--- 	end
---	end
+	cls(bckgrdclrs[bgind])
+	drawanim()
 	map()
 	drawgrid()
 	drawplayer()
 	drawscore()
+end
+
+function drawanim()
+	local sprite = 8
+	if (not player.isactive) sprite = 16
+	sspr(sprite,0,8,8,anim.x,anim.y,anim.w,anim.h)
+	anim.x+= anim.vx
+	anim.y+= anim.vy
+	if anim.x > 128 - anim.w or anim.x < 0 then
+		anim.vx *= -1
+	end
+	if anim.y > 128 - anim.h or anim.y < 0then
+		anim.vy *= -1
+		bgind = (bgind + ceil(rnd(3))) % #bckgrdclrs + 1
+	end
 end
 
 function menu()
@@ -161,17 +185,40 @@ function checkcontroller()
 end
 
 function waitfornewround()
+	if timer < 10 then
+		timer += 1
+		return
+	end
 	if btnp(🅾️) then
 		state = states.game
 		initgrid()
+		timer = 0
+		if redcount > bluecount then
+			player.isactive = false
+		elseif bluecount > redcount then
+			player.isactive = true
+		else
+			player.isactive = lastplaced == status.blue
+		end
 	end
 end
 
 function waitfornewgame()
+	if timer < 10 then
+		timer += 1
+		return
+	end
 	if btnp(🅾️) then
 		state = states.game
 		initgamevariables()
 		initgrid()
+		timer = 0
+	end
+	if btnp(❎) then
+		state = states.menu
+		initgamevariables()
+		initgrid()
+		timer = 0
 	end
 end
 
@@ -192,7 +239,8 @@ end
 
 function placetile(row, col)
 	if firstturn then
-		grid[3][3] = status.empty
+		-- reset center to its default
+		grid[3][3] = status.prime
 		firstturn = false
 	end
 	-- get correct color
@@ -217,6 +265,30 @@ function placetile(row, col)
  end
  if col != 5 then
 	 grid[row][col+1] = grid[row][col+1] | block
+	end
+end
+
+function drawgameend()
+	drawanim()
+	if scores.p1 >= 7 then
+		printcenter("red wins!",6,colors.red)
+	else
+		printcenter("blue wins!",6,colors.blue)
+	end 
+	printcenter("press 🅾️ to play again.", 14,colors.white)
+	player.isactive = scores.p1 >= 7
+end
+
+function drawroundend()
+	drawgame()
+	printcenter("end of the round.", 6, colors.white)
+	printcenter("press 🅾️ to continue.", 14, colors.white)
+	if redcount > bluecount then
+		print("+"..redcount-bluecount, 56, 82, colors.red)
+	elseif bluecount > redcount then
+		print("+"..bluecount-redcount, 56, 82, colors.blue)
+	else
+		print("no points", 43, 82, colors.white)
 	end
 end
 
@@ -280,6 +352,7 @@ function compturn()
 			placetile(comp.row, comp.col)
 			comp.hasdest = false
 			player.isactive = hasvalidspaces(status.redinv)
+			timer = 0
 		else
 			movecomp()
 		end
@@ -315,36 +388,44 @@ function movecomp()
 end
 
 function easyturn()
- local spcs = {}
+ local valid = {}
  local prime = {}
  local standard = {}
- for r = 1, 5 do
- 	for c = 1, 5 do
- 		if grid[r][c] & status.blueinv == 0 then
-   			add(spcs, {row = r, col = c})
-			if grid[r][c] & status.prime > 0  
-			 and grid[r][c] & status.blueb == 0 then
-				add(prime,{row = r, col = c})
-			end  
-			if grid[r][c] & status.standard > 0  
-			 and grid[r][c] & status.blueb == 0 then
-				add(standard,{row = r, col = c})
-			end  
-		end
-	end
- end
+ local empty = {}
+	for r = 1, 5 do
+ 		for c = 1, 5 do
+			local currtile = grid[r][c]
+ 			if currtile & status.blueinv == 0 then
+   				add(valid, {row = r, col = c})
+				if currtile & status.prime > 0  
+				 and currtile & status.blueb == 0 then
+					add(prime,{row = r, col = c})
+				end  
+				if currtile & status.standard > 0  
+				 and currtile & status.blueb == 0 then
+					add(standard,{row = r, col = c})
+				end
+				if currtile & status.blueb == 0 then
+					add(empty, {row = r, col = c})
+				end
+			end -- end if is valid
+		end -- end for c
+	end --end for r
  
- if #spcs == 0 then
+ if #valid == 0 then
  	roundend()
  	return
  end
+ 
  local tile = {}
  if #prime != 0 then
-	tile = prime[ceil(rnd(#prime))]
+		tile = prime[ceil(rnd(#prime))]
  elseif #standard != 0 then
  	tile = standard[ceil(rnd(#standard))]
+ elseif #empty != 0 then
+	tile = empty[ceil(rnd(#empty))]
  else
-	tile = spcs[ceil(rnd(#spcs))]
+		tile = valid[ceil(rnd(#valid))]
  end
  comp.destcol = tile.col
  comp.destrow = tile.row
@@ -352,7 +433,8 @@ function easyturn()
 end
 
 function hardturn()
-	--hard logic
+	--hard logic, for now do easyturn
+	easyturn()
 end
 
 function hasvalidspaces(invalid)
@@ -367,44 +449,29 @@ function hasvalidspaces(invalid)
 end
 
 function roundend()
-	local red = 0
-	local blue = 0
+	redcount = 0
+	bluecount = 0
 	for r = 1, 5 do
 		for c = 1, 5 do
 		 if grid[r][c] & status.blue > 0 then
-		 	blue+=1
+		 	bluecount+=1
 		 elseif grid[r][c] & status.red > 0 then
-				red+=1
+			redcount+=1
 		 end
 		end
 	end
 	
-	if red > blue then
-		scores.p1 += red - blue
-		player.isactive = false
-		print("+"..red-blue, 56, 82, colors.red)
-	elseif blue > red then
-		scores.p2 += blue - red
-		player.isactive = true
-		print("+"..blue-red, 56, 82, colors.blue)
-	else
-		print("no points", 43, 82, colors.white)
-		player.isactive = lastplaced == status.blue
+	if redcount > bluecount then
+		scores.p1 += redcount - bluecount
+	elseif bluecount > redcount then
+		scores.p2 += bluecount - redcount
 	end
 
 	if scores.p1 >= 7 or scores.p2 >= 7 then
 		--trigger end of game
 		state = states.gameend
-		if scores.p1 >= 7 then
-		 printcenter("red wins!",0,colors.red)
-		else
-		 printcenter("blue wins!",0,colors.blue)
-		end 
-		printcenter("press 🅾️ to play again.", 8,colors.white)
 	else
 		state = states.roundend
-		printcenter("end of the round.", 0, colors.white)
-		printcenter("press 🅾️ to continue.", 8, colors.white)
 	end
 end
 
