@@ -42,14 +42,20 @@ function _init()
 	redcount = 0
 	bluecount = 0
 	anim = {
-		x = 0,
-		y = 0,
+		x = rnd(100),
+		y = rnd(100),
 		w = 24,
 		h = 24,
 		vx = .8,
 		vy = 1.3}
-	bgind = 1
-	bckgrdclrs = {1,2,3,5}
+	anim2 = {
+		x = rnd(100),
+		y = rnd(100),
+		w = 24,
+		h = 24,
+		vx = 1.4,
+		vy = .9}
+	state = states.menu
 	--initialize game components
 	initgrid()
 	initgamevariables()
@@ -72,7 +78,6 @@ function initgamevariables()
 	scores = {
 		p1 = 0,
 		p2 = 0}
-	state = states.menu
 	timer = 0
 	firstturn = true
 	lastplaced = status.red
@@ -112,26 +117,43 @@ function drawmenu()
 end
 
 function drawgame()
-	cls(bckgrdclrs[bgind])
-	drawanim()
+	cls(5)
+	drawanim(anim)
+	drawanim(anim2)
+	checkcollision()
 	map()
 	drawgrid()
 	drawplayer()
 	drawscore()
 end
 
-function drawanim()
+function drawanim(obj)
 	local sprite = 8
 	if (not player.isactive) sprite = 16
-	sspr(sprite,0,8,8,anim.x,anim.y,anim.w,anim.h)
-	anim.x+= anim.vx
-	anim.y+= anim.vy
-	if anim.x > 128 - anim.w or anim.x < 0 then
-		anim.vx *= -1
+	sspr(sprite,0,8,8,obj.x,obj.y,obj.w,obj.h)
+	obj.x+= obj.vx
+	obj.y+= obj.vy
+	if obj.x > 128 - obj.w or obj.x < 0 then
+		obj.vx *= -1
 	end
-	if anim.y > 128 - anim.h or anim.y < 0then
-		anim.vy *= -1
-		bgind = (bgind + ceil(rnd(3))) % #bckgrdclrs + 1
+	if obj.y > 128 - obj.h or obj.y < 0 then
+		obj.vy *= -1
+	end
+end
+
+function checkcollision()
+	if ((anim.x < anim2.x and anim.x + anim.w > anim2.x)
+		or (anim2.x < anim.x and anim2.x + anim2.w > anim.x))
+		and 
+		((anim.y < anim2.y and anim.y + anim.w > anim2.y)
+		or (anim2.y < anim.y and anim2.y + anim2.w > anim.y)) then
+		
+		local vx1 = anim.vx
+		anim.vx = anim2.vx
+		anim2.vx = vx1
+		local vy1 = anim.vy
+		anim.vy = anim2.vy
+		anim2.vy = vy1
 	end
 end
 
@@ -269,7 +291,8 @@ function placetile(row, col)
 end
 
 function drawgameend()
-	drawanim()
+	drawanim(anim)
+	drawanim(anim2)
 	if scores.p1 >= 7 then
 		printcenter("red wins!",6,colors.red)
 	else
@@ -277,6 +300,7 @@ function drawgameend()
 	end 
 	printcenter("press 🅾️ to play again.", 14,colors.white)
 	player.isactive = scores.p1 >= 7
+	printcenter("press ❎ to go to the menu", 100, colors.white)
 end
 
 function drawroundend()
