@@ -17,7 +17,9 @@ function _init()
 		blue = 2,
 		p1point = 5,
 		p2point = 6,
-		invalid = 7}
+		invalid = 7,
+		check = 14,
+		cross = 15}
 	states = {
 		menu = 0,
 		rules = 1,
@@ -42,21 +44,23 @@ function _init()
 	redcount = 0
 	bluecount = 0
 	anim = {
-		x = rnd(100),
+		x = rnd(50),
 		y = rnd(100),
 		w = 24,
 		h = 24,
 		vx = .8,
 		vy = 1.3}
 	anim2 = {
-		x = rnd(100),
+		x = rnd(50) + 50,
 		y = rnd(100),
 		w = 24,
 		h = 24,
 		vx = 1.4,
 		vy = .9}
 	state = states.menu
+	rulesstate = 1
 	--initialize game components
+	initrules()
 	initgrid()
 	initgamevariables()
 end
@@ -88,6 +92,7 @@ function _update()
 	elseif state == states.roundend then waitfornewround()
 	elseif state == states.gameend then waitfornewgame()
 	elseif state == states.menu then menu()
+	elseif state == states.rules then howtoplay()
 	end
 end
 
@@ -96,11 +101,12 @@ function _draw()
 	if (state == states.roundend) drawroundend()
 	if (state == states.gameend) drawgameend() 
 	if (state == states.menu) drawmenu()
+	if (state == states.rules) drawhowtoplay()
 end
 
 function drawmenu()
 	cls()
-	map(17,2)
+	map(16,0)
 	print("easy", 18, 122, colors.white)
 	print("hard", 47, 122, colors.white)
 	print("how to play", 76, 122, colors.white)
@@ -133,10 +139,10 @@ function drawanim(obj)
 	sspr(sprite,0,8,8,obj.x,obj.y,obj.w,obj.h)
 	obj.x+= obj.vx
 	obj.y+= obj.vy
-	if obj.x > 128 - obj.w or obj.x < 0 then
+	if obj.x >= 128 - obj.w or obj.x < 0 then
 		obj.vx *= -1
 	end
-	if obj.y > 128 - obj.h or obj.y < 0 then
+	if obj.y >= 128 - obj.h or obj.y < 0 then
 		obj.vy *= -1
 	end
 end
@@ -158,6 +164,8 @@ function checkcollision()
 end
 
 function menu()
+	if (waitfortimer(10)) return
+
 	if btnp(⬆️) or btnp(⬅️) then
 		mode = (mode + 2) % 3
 	elseif 	btnp(⬇️) or btnp(➡️) then
@@ -165,8 +173,11 @@ function menu()
 	end
 	if btn(🅾️) and mode != modes.rules then
 		state = states.game
+		timer = 0
 	elseif btn(🅾️) then
 		state = states.rules
+		rulesstate = 1
+		timer = 0
 	end
 end
 
@@ -207,10 +218,8 @@ function checkcontroller()
 end
 
 function waitfornewround()
-	if timer < 10 then
-		timer += 1
-		return
-	end
+	if (waitfortimer(10)) return
+
 	if btnp(🅾️) then
 		state = states.game
 		initgrid()
@@ -220,16 +229,14 @@ function waitfornewround()
 		elseif bluecount > redcount then
 			player.isactive = true
 		else
-			player.isactive = lastplaced == status.blue
+			player.isactive = lastplaced == status.red
 		end
 	end
 end
 
 function waitfornewgame()
-	if timer < 10 then
-		timer += 1
-		return
-	end
+	if (waitfortimer(10)) return
+
 	if btnp(🅾️) then
 		state = states.game
 		initgamevariables()
@@ -244,11 +251,62 @@ function waitfornewgame()
 	end
 end
 
+function howtoplay()
+	if (waitfortimer(10)) return
+
+	if btnp(🅾️) or btnp(❎)
+		or btnp(⬆️) or btnp(⬅️)
+		or btnp(➡️) or btnp(⬇️) then
+		rulesstate += 1
+		timer = 0
+	end
+
+	if rulesstate >= 6 then
+		state = states.menu
+	end
+end
+
 function drawplayer()
 	if player.isactive then
 		spr(player.sprite, player.col * 8 + ox, player.row * 8 + oy)
 	else
 		spr(comp.sprite, comp.col * 8 + ox, comp.row * 8 + oy)
+	end
+end
+
+function drawhowtoplay()
+	cls(5)
+	rect(0,12,127,14,6)
+	line(1,13,126,13,0)
+	printcenter("how to play british square", 4, colors.white)
+	local rule = rules[rulesstate]
+	local y = 10
+	for i = 1, #rule do
+		y += 10
+		printcenter(rule[i], y, colors.white)
+	end
+	if rulesstate == 2 then
+		map(0,-5)
+		spr(sprites.cross,56,88)
+	elseif rulesstate == 3 then
+		rect(2,90,125, 124, 6)
+		map(51, -11)
+		local check = 94
+		-- red by blue
+		spr(sprites.cross,12,check)
+		-- red by red
+		spr(sprites.check,44,check)
+		-- blue by blue
+		spr(sprites.check,76,check)
+		-- diagonal
+		spr(sprites.check, 108, check)
+	elseif rulesstate == 4 then
+		map(36, -7)
+	elseif rulesstate == 5 then
+		rect(18,113, 110, 125, 6)
+		printcenter("no points", 117, colors.white)
+		print("+2", 24, 117, colors.red)
+		print("+2", 98, 117, colors.blue)
 	end
 end
 
@@ -293,6 +351,7 @@ end
 function drawgameend()
 	drawanim(anim)
 	drawanim(anim2)
+	checkcollision()
 	if scores.p1 >= 7 then
 		printcenter("red wins!",6,colors.red)
 	else
@@ -388,10 +447,7 @@ function compturn()
 end
 
 function movecomp()
-	if timer < 13 then
-  		timer +=1
-  		return
- 	end
+	if (waitfortimer(13)) return
  	
 	timer = 0
 	if comp.row > comp.destrow then
@@ -501,4 +557,33 @@ end
 
 function printcenter(text, y, color)
 	print(text, #text * -2 + 64, y, color)
+end
+
+function waitfortimer(time)
+	if timer < time then
+		timer += 1
+		return true
+	end
+	return false
+end
+
+function initrules()
+	rules = {
+		{"the object of the game is", "to end each round with more", 
+		"of your tiles on the board", "than your opponent.",
+		"", "the first player to 7", "points wins!",
+		"", "press any button to continue."},
+		{"the first player may place", "a piece anywhere on the board",
+		"except the center square on", "the first move."},
+		{"the second player may place", "a piece on any square",
+		"including the center square", "so long as its side is not",
+		"facing an opponent's piece.", "pieces may be placed by",
+		"their own color."},
+		{"play continues until no more", "moves are possible for",
+		"either color."},
+		{"at the end of the round", "the tiles are counted",
+		"and the player with the most", "tiles is awarded points",
+		"equal to the difference.", "", "the player with the least",
+		"points will go first at", "the beginning of the next round."}
+	}
 end
