@@ -25,11 +25,14 @@ function _init()
 		rules = 1,
 		game = 2,
 		roundend = 3,
-		gameend = 4}
+		gameend = 4,
+		pause = 5}
 	colors = {
 		red = 8,
 		blue = 12,
-		white = 7}
+		white = 7,
+		gray = 6,
+		darkgray = 5}
 	pointloc = {
 		p1x = 32,
 		p2x = 80,
@@ -41,31 +44,29 @@ function _init()
 		hard = 1,
 		rules = 2}
 	mode = modes.easy
-	redcount = 0
-	bluecount = 0
 	anim = {
-		x = rnd(50),
-		y = rnd(100),
+		x = rnd(25),
+		y = rnd(20) + 70,
 		w = 24,
 		h = 24,
 		vx = .8,
 		vy = 1.3}
 	anim2 = {
-		x = rnd(50) + 50,
-		y = rnd(100),
+		x = rnd(30) + 40,
+		y = rnd(50),
 		w = 24,
 		h = 24,
 		vx = 1.4,
-		vy = .9}
+		vy = -.9}
 	state = states.menu
 	rulesstate = 1
+	timer=0
 	--initialize game components
 	initrules()
-	initgrid()
-	initgamevariables()
 end
 
 function initgamevariables()
+	initgrid()
 	player = {
 		isactive = true,
 		isvalid = true,
@@ -82,18 +83,21 @@ function initgamevariables()
 	scores = {
 		p1 = 0,
 		p2 = 0}
+	redcount = 0
+	bluecount = 0
 	timer = 0
+	pausestate = false
 	firstturn = true
 	lastplaced = status.red
 end
 
 function _update()
-	if state == states.game then doturn()
-	elseif state == states.roundend then waitfornewround()
-	elseif state == states.gameend then waitfornewgame()
-	elseif state == states.menu then menu()
-	elseif state == states.rules then howtoplay()
-	end
+	if (state == states.game) doturn()
+	if (state == states.roundend) waitfornewround()
+	if (state == states.gameend) waitfornewgame()
+	if (state == states.menu) menu()
+	if (state == states.rules) howtoplay()
+	if (state == states.pause) pausemenu()
 end
 
 function _draw()
@@ -102,6 +106,7 @@ function _draw()
 	if (state == states.gameend) drawgameend() 
 	if (state == states.menu) drawmenu()
 	if (state == states.rules) drawhowtoplay()
+	if (state == states.pause) drawpause()
 end
 
 function drawmenu()
@@ -123,7 +128,7 @@ function drawmenu()
 end
 
 function drawgame()
-	cls(5)
+	cls(colors.darkgray)
 	drawanim(anim)
 	drawanim(anim2)
 	checkcollision()
@@ -134,9 +139,9 @@ function drawgame()
 end
 
 function drawanim(obj)
-	local sprite = 8
-	if (not player.isactive) sprite = 16
-	sspr(sprite,0,8,8,obj.x,obj.y,obj.w,obj.h)
+	local spritex = 8
+	if (not player.isactive) spritex = 16
+	sspr(spritex,0,8,8,obj.x,obj.y,obj.w,obj.h)
 	obj.x+= obj.vx
 	obj.y+= obj.vy
 	if obj.x >= 128 - obj.w or obj.x < 0 then
@@ -173,6 +178,7 @@ function menu()
 	end
 	if btn(🅾️) and mode != modes.rules then
 		state = states.game
+		initgamevariables()
 		timer = 0
 	elseif btn(🅾️) then
 		state = states.rules
@@ -214,6 +220,48 @@ function checkcontroller()
 	 and player.isvalid then
 		placetile(player.row,player.col)
 		player.isactive = not hasvalidspaces(status.blueinv)	
+		return
+	end
+	if btnp(❎) then
+		state = states.pause
+		pausestate = false
+		return
+	end
+end
+
+function drawpause()
+	rectfill(30, 38, 89, 60, 0)
+	print("exit to menu?", 34, 42, colors.white)
+	print("no", 48, 52, colors.white)
+	print("yes", 72, 52, colors.white)
+	if pausestate then
+		print("yes", 72, 52, colors.red)
+		spr(sprites.red, 62, 50)
+	else
+		print("no", 48, 52, colors.red)
+		spr(sprites.red, 38, 50)
+	end
+end
+
+function pausemenu()
+	if (waitfortimer(10)) return
+
+	if btnp(⬆️) or btnp(⬅️)
+	 or btnp(⬇️) or btnp(➡️) then
+		pausestate = not pausestate
+	end
+
+	if btnp(🅾️) and pausestate then
+		state = states.menu
+		timer = 0
+		return
+	end
+
+	if btnp(❎)  
+	 or (btnp(🅾️) and not pausestate) then
+		state = states.game
+		timer = 0
+		return
 	end
 end
 
@@ -276,7 +324,7 @@ end
 
 function drawhowtoplay()
 	cls(5)
-	rect(0,12,127,14,6)
+	rect(-1,12,128,14,colors.gray)
 	line(1,13,126,13,0)
 	printcenter("how to play british square", 4, colors.white)
 	local rule = rules[rulesstate]
@@ -289,7 +337,7 @@ function drawhowtoplay()
 		map(0,-5)
 		spr(sprites.cross,56,88)
 	elseif rulesstate == 3 then
-		rect(2,90,125, 124, 6)
+		rect(2,90,125, 124, colors.gray)
 		map(51, -11)
 		local check = 94
 		-- red by blue
@@ -303,7 +351,7 @@ function drawhowtoplay()
 	elseif rulesstate == 4 then
 		map(36, -7)
 	elseif rulesstate == 5 then
-		rect(18,113, 110, 125, 6)
+		rect(18,113, 110, 125, colors.gray)
 		printcenter("no points", 117, colors.white)
 		print("+2", 24, 117, colors.red)
 		print("+2", 98, 117, colors.blue)
