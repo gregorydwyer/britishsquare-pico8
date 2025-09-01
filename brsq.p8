@@ -1,5 +1,5 @@
 pico-8 cartridge // http://www.pico-8.com
-version 42
+version 43
 __lua__
 -- initialization
 function _init()
@@ -51,10 +51,10 @@ function _init()
 	ox = 32
 	oy = 24
 	modes ={
-		easy = 0,
-		hard = 1,
+		comp = 0,
+		human = 1,
 		rules = 2}
-	mode = modes.easy
+	mode = modes.comp
 	anim = {
 		x = rnd(25),
 		y = rnd(20) + 70,
@@ -89,18 +89,18 @@ end
 function drawmenu()
 	cls()
 	map(16,0)
-	print("easy", 18, 122, colors.white)
-	print("hard", 47, 122, colors.white)
-	print("how to play", 76, 122, colors.white)
-	if mode == modes.easy then
-		spr(sprites.red, 8, 120)
-		print("easy", 18, 122, colors.red)
-	elseif mode == modes.hard then
+	print("1-plyr", 10, 122, colors.white)
+	print("2-plyr", 47, 122, colors.white)
+	print("how to play", 84, 122, colors.white)
+	if mode == modes.comp then
+		spr(sprites.red, 0, 120)
+		print("1-plyr", 10, 122, colors.red)
+	elseif mode == modes.human then
 		spr(sprites.red, 37, 120)
-		print("hard", 47, 122, colors.red)
+		print("2-plyr", 47, 122, colors.red)
 	else
-		spr(sprites.red, 66, 120)
-		print("how to play", 76, 122, colors.red)		
+		spr(sprites.red, 74, 120)
+		print("how to play", 84, 122, colors.red)		
 	end
 end
 
@@ -130,10 +130,10 @@ function drawpause()
 end
 
 function drawplayer()
-	if player.isactive then
-		spr(player.sprite, player.col * 8 + ox, player.row * 8 + oy)
+	if p1isactive then
+		spr(p1.sprite, p1.col * 8 + ox, p1.row * 8 + oy)
 	else
-		spr(comp.sprite, comp.col * 8 + ox, comp.row * 8 + oy)
+		spr(p2.sprite, p2.col * 8 + ox, p2.row * 8 + oy)
 	end
 end
 
@@ -190,7 +190,7 @@ function drawgameend()
 		printcenter("blue wins!",6,colors.blue)
 	end 
 	printcenter("press 🅾️ to play again.", 14,colors.white)
-	player.isactive = scores.p1 >= 7
+	p1isactive = scores.p1 >= 7
 	printcenter("press ❎ to go to the menu", 116, colors.white)
 end
 
@@ -225,7 +225,7 @@ end
 
 function drawanim(obj)
 	local spritex = 8
-	if (not player.isactive) spritex = 16
+	if (not p1isactive) spritex = 16
 	sspr(spritex,0,8,8,obj.x,obj.y,obj.w,obj.h)
 	obj.x+= obj.vx
 	obj.y+= obj.vy
@@ -311,11 +311,11 @@ function waitfornewround()
 		initgrid()
 		timer = 0
 		if scores.p1 > scores.p2 then
-			player.isactive = false
+			p1isactive = false
 		elseif scores.p2 > scores.p1 then
-			player.isactive = true
+			p1isactive = true
 		else
-			player.isactive = lastplaced == status.red
+			p1isactive = lastplaced == status.red
 		end
 	end
 end
@@ -356,19 +356,23 @@ function howtoplay()
 end
 
 function doturn()
-	if not player.isactive then
+	if mode == modes.comp and not p1isactive then
 		compturn()
 		return
 	end
-	if not hasvalidspaces(status.redinv) then
+	if not hasvalidspaces(status.blueinv) and not hasvalidspaces(status.redinv) then
 		roundend()
 		return
 	end
-	checkcontroller()
+	if p1isactive then
+		checkcontroller(p1)
+	else
+		checkcontroller(p2)
+	end
 end
 
 
-function checkcontroller()
+function checkcontroller(player)
 	local r = player.row
 	local c = player.col
 	if (btnp(⬅️)) player.col-=1
@@ -382,16 +386,15 @@ function checkcontroller()
 	if (player.col > 5) player.col = 5
 	if (player.row > 5) player.row = 5
 
-	setisvalid()
+	setisvalid(player)
 	
 	if r != player.row or c != player.col then
 		sfx(sounds.move)
 	end
 
-	if btnp(🅾️) and player.isactive
-	 and player.isvalid then
+	if btnp(🅾️)   and player.isvalid then
 		placetile(player.row,player.col)
-		player.isactive = not hasvalidspaces(status.blueinv)	
+		setactiveplayer()
 		return
 	end
 	if btnp(❎) then
@@ -405,19 +408,19 @@ end
 -- game logic
 function initgamevariables()
 	initgrid()
-	player = {
-		isactive = true,
+	p1 = {
 		isvalid = true,
 		sprite = sprites.p1,
 		row=1,
 		col=1}
-	comp = {
+	p2 = {
 		sprite = sprites.p2,
 		row = 1,
 		col = 1,
 		hasdest = false,
 		destcol = 0,
 		destrow = 0}
+	p1isactive = true
 	scores = {
 		p1 = 0,
 		p2 = 0}
@@ -439,11 +442,18 @@ function initgrid()
 			status.standard,
 			status.standard,
 			status.empty}
-		else
+		elseif i == 3 then
+			grid[i] = {
+			status.standard,
+			status.standard,
+			status.prime,
+			status.standard,
+			status.standard}
+		else 
 			grid[i] = {
 			status.standard,
 			status.prime,
-			status.prime,
+			status.standard,
 			status.prime,
 			status.standard}
 		end
@@ -462,7 +472,7 @@ function placetile(row, col)
 	-- get correct color
 	local tile = status.red
 	local block = status.redb
-	if not player.isactive then
+	if not p1isactive then
 	 tile = status.blue
 	 block = status.blueb
 	end
@@ -485,13 +495,27 @@ function placetile(row, col)
 	sfx(sounds.tile)
 end
 
+function setactiveplayer()
+	if p1isactive then
+		p1isactive = not hasvalidspaces(status.blueinv)	
+	else
+		p1isactive = hasvalidspaces(status.redinv)
+	end
 
-function setisvalid()
+end
+
+function setisvalid(player)
 	local tile = grid[player.row][player.col]
-	if tile & status.redinv == 0
+	local inv = status.redinv
+	local sprite = sprites.p1
+	if not p1isactive then
+		inv = status.blueinv
+		sprite = sprites.p2
+	end
+	if tile & inv == 0
 		then
 		player.isvalid = true
-		player.sprite = sprites.p1
+		player.sprite = sprite
 	else
 		player.isvalid = false
 		player.sprite = sprites.invalid
@@ -499,20 +523,18 @@ function setisvalid()
 end
 
 function compturn()
-	if comp.hasdest then
-		if comp.row == comp.destrow 
-		and comp.col == comp.destcol then
-			placetile(comp.row, comp.col)
-			comp.hasdest = false
-			player.isactive = hasvalidspaces(status.redinv)
+	if p2.hasdest then
+		if p2.row == p2.destrow 
+		and p2.col == p2.destcol then
+			placetile(p2.row, p2.col)
+			p2.hasdest = false
+			p1isactive = hasvalidspaces(status.redinv)
 			timer = 0
 		else
 			movecomp()
 		end
-	elseif mode == modes.easy then
-		easyturn()
 	else
-		hardturn()
+		easyturn()
 	end
 end
 
@@ -520,22 +542,22 @@ function movecomp()
 	if (waitfortimer(13)) return
  	
 	timer = 0
-	if comp.row > comp.destrow then
-		comp.row -= 1
-	elseif comp.col > comp.destcol then
-		comp.col -= 1
-	elseif comp.row < comp.destrow then
-		comp.row += 1
-	elseif comp.col < comp.destcol then
-		comp.col += 1
+	if p2.row > p2.destrow then
+		p2.row -= 1
+	elseif p2.col > p2.destcol then
+		p2.col -= 1
+	elseif p2.row < p2.destrow then
+		p2.row += 1
+	elseif p2.col < p2.destcol then
+		p2.col += 1
 	end
 	
 	sfx(sounds.move)
 	
-	if grid[comp.row][comp.col] & status.blueinv == 0 then
-		comp.sprite = sprites.p2
+	if grid[p2.row][p2.col] & status.blueinv == 0 then
+		p2.sprite = sprites.p2
 	else
-		comp.sprite = sprites.invalid
+		p2.sprite = sprites.invalid
 	end
 end
 
@@ -579,73 +601,9 @@ function easyturn()
  else
 		tile = valid[ceil(rnd(#valid))]
  end
- comp.destcol = tile.col
- comp.destrow = tile.row
- comp.hasdest = true
-end
-
-function hardturn()
-	--hard logic
-	local tiles = scoretiles()
-	local tile = {}
-	if #tiles.five > 0 then
-		tile = tiles.five[ceil(rnd(#tiles.five))]
-	elseif #tiles.four > 0 then
-		tile = tiles.four[ceil(rnd(#tiles.four))]
-	elseif #tiles.three > 0 then
-		tile = tiles.three[ceil(rnd(#tiles.three))]
-	elseif #tiles.two > 0 then
-		tile = tiles.two[ceil(rnd(#tiles.two))]
-	elseif #tiles.one > 0 then
-		tile = tiles.one[ceil(rnd(#tiles.one))]
-	else
-		roundend()
- 		return
-	end
-	
-	comp.destcol = tile.col
-	comp.destrow = tile.row
- 	comp.hasdest = true
-end
-
-function scoretiles()
-		local tiles = { five={}, four={}, three={}, two={}, one={}}
-	for r = 1, 5 do
-		for c = 1, 5 do
-			if grid[r][c] & status.blueinv == 0 then
-				local current = { row = r, col = c, score = 1}
-				if r != 1 and (grid[r-1][c] & status.redinv == 0 
-					or grid[r-1][c] & status.blueb > 0) then
-					current.score += 1 
-				end
-				if r != 5 and (grid[r+1][c] & status.redinv == 0 
-					or grid[r+1][c] & status.blueb > 0) then
-					current.score += 1
-				end
-				if c != 1 and (grid[r][c-1] & status.redinv == 0 
-					or grid[r][c-1] & status.blueb > 0) then
-					current.score += 1
-				end
-				if c != 5 and (grid[r][c+1] & status.redinv == 0
-					or grid[r][c+1] & status.blueb > 0) then
-					current.score += 1
-				end
-
-				if current.score == 5 then
-					add(tiles.five, current)
-				elseif current.score == 4 then
-					add(tiles.four, current)
-				elseif current.score == 3 then
-					add(tiles.three, current)
-				elseif current.score == 2 then
-					add(tiles.two, current)
-				elseif current.score == 1 then
-					add(tiles.one, current)
-				end
-			end
-		end
-	end
-	return tiles
+ p2.destcol = tile.col
+ p2.destrow = tile.row
+ p2.hasdest = true
 end
 
 function hasvalidspaces(invalid)
